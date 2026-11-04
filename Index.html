@@ -4,19 +4,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0866ff">
 <title>CAKTZ GROUP POSTER</title>
 <style>
+*{box-sizing:border-box}
 body{margin:0;background:#f1f5fb;font-family:Arial;color:#172033}
 header{background:#0866ff;color:white;padding:25px 18px;border-radius:0 0 22px 22px}
 main{max-width:650px;margin:15px auto;padding:12px}
 .card{background:white;padding:18px;border-radius:15px;margin-bottom:15px}
 h2{font-size:18px}
-input,textarea{width:100%;box-sizing:border-box;padding:13px;margin:7px 0;border:1px solid #ddd;border-radius:9px;font-size:14px}
+input:not([type=checkbox]),textarea{width:100%;padding:13px;margin:7px 0;border:1px solid #ddd;border-radius:9px;font-size:15px}
 textarea{height:120px}
-button{border:0;padding:13px;border-radius:9px;background:#1877f2;color:white;font-weight:bold;cursor:pointer}
+button{border:0;padding:13px;border-radius:9px;background:#1877f2;color:white;font-weight:bold}
 .full{width:100%;margin-top:8px}
-.group{padding:12px;border-bottom:1px solid #eee}
-small{color:#777}
+.group{padding:12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.group label{overflow-wrap:anywhere}
+small,.muted{color:#777}
 </style>
 </head>
 <body>
@@ -25,12 +28,14 @@ small{color:#777}
 <small style="color:white">Facebook Marketing Dashboard</small>
 </header>
 <main>
+
 <div class="card">
 <h2>Create New Post</h2>
 <textarea id="post" placeholder="Write your advertisement here..."></textarea>
 <input id="link" placeholder="Affiliate link">
 <input id="photo" type="file" accept="image/*">
 <button class="full" onclick="copyPost()">COPY POST</button>
+<button class="full" onclick="saveDraft()">SAVE POST</button>
 </div>
 
 <div class="card">
@@ -42,43 +47,177 @@ small{color:#777}
 </div>
 
 <div class="card">
+<h2>Saved Posts</h2>
+<div id="drafts"></div>
+</div>
+
+<div class="card">
 <h2>Publish</h2>
-<p><small>Facebook posting permissions are required for automatic publishing. For now, selected group links open so you can paste your post manually.</small></p>
+<p class="muted">Open selected groups and paste your copied post manually. Automatic publishing requires approved Facebook API permissions.</p>
 <button class="full" onclick="publish()">OPEN SELECTED GROUPS</button>
 <p id="status"></p>
 </div>
+
 </main>
 <script>
 let groups=[];
+let drafts=[];
+
+function load(){
+try{
+groups=JSON.parse(localStorage.getItem("cak_groups")||"[]");
+drafts=JSON.parse(localStorage.getItem("cak_drafts")||"[]");
+if(!Array.isArray(groups))groups=[];
+if(!Array.isArray(drafts))drafts=[];
+}catch(e){groups=[];drafts=[];}
+showGroups();
+showDrafts();
+}
+
+function saveGroups(){
+try{localStorage.setItem("cak_groups",JSON.stringify(groups));}
+catch(e){alert("Unable to save groups.");}
+}
+
 function addGroup(){
-let name=document.getElementById('name').value.trim();
-let url=document.getElementById('url').value.trim();
-if(!name||!url){alert('Enter group name and URL');return;}
-if(!url.startsWith('https://www.facebook.com/groups/')&&!url.startsWith('https://facebook.com/groups/')){alert('Enter a valid Facebook group URL');return;}
+let name=document.getElementById("name").value.trim();
+let url=document.getElementById("url").value.trim();
+
+if(!name||!url){alert("Enter group name and URL");return;}
+
+try{
+let u=new URL(url);
+if(!["facebook.com","www.facebook.com","m.facebook.com"].includes(u.hostname.toLowerCase())||!u.pathname.startsWith("/groups/")){
+alert("Enter a valid Facebook group URL");return;
+}
+}catch(e){alert("Invalid URL");return;}
+
+if(groups.some(g=>g.url===url)){alert("Group already exists");return;}
+
 groups.push({name,url,selected:true});
-document.getElementById('name').value='';
-document.getElementById('url').value='';
+saveGroups();
+document.getElementById("name").value="";
+document.getElementById("url").value="";
 showGroups();
 }
+
 function showGroups(){
-document.getElementById('groups').innerHTML=groups.map((g,i)=>`
-<div class="group">
-<label><input type="checkbox" checked onchange="groups[${i}].selected=this.checked"> ${g.name}</label>
-<button onclick="groups.splice(${i},1);showGroups()">Remove</button>
-</div>`).join('');
+let box=document.getElementById("groups");
+box.innerHTML="";
+if(!groups.length){box.textContent="No groups added yet.";return;}
+
+groups.forEach((g,i)=>{
+let div=document.createElement("div");
+div.className="group";
+
+let label=document.createElement("label");
+let check=document.createElement("input");
+check.type="checkbox";
+check.checked=g.selected!==false;
+check.onchange=()=>{
+groups[i].selected=check.checked;
+saveGroups();
+};
+label.append(check,document.createTextNode(" "+g.name));
+
+let remove=document.createElement("button");
+remove.textContent="Remove";
+remove.style.background="#dc3545";
+remove.onclick=()=>{
+groups.splice(i,1);
+saveGroups();
+showGroups();
+};
+
+let open=document.createElement("button");
+open.textContent="Open";
+open.onclick=()=>window.open(g.url,"_blank");
+
+let actions=document.createElement("span");
+actions.append(open,remove);
+div.append(label,actions);
+box.append(div);
+});
 }
+
 function copyPost(){
-let text=document.getElementById('post').value+'\n'+document.getElementById('link').value;
-if(!text.trim()){alert('Write your post first');return;}
-navigator.clipboard.writeText(text).then(()=>alert('Post copied!')).catch(()=>alert('Select and copy the post manually.'));
+let text=document.getElementById("post").value.trim();
+let link=document.getElementById("link").value.trim();
+text=[text,link].filter(Boolean).join("\n");
+
+if(!text){alert("Write your post first");return;}
+
+if(navigator.clipboard&&window.isSecureContext){
+navigator.clipboard.writeText(text)
+.then(()=>alert("Post copied successfully!"))
+.catch(()=>alert("Copy blocked. Copy manually."));
+}else{
+let t=document.createElement("textarea");
+t.value=text;
+document.body.append(t);
+t.select();
+try{
+document.execCommand("copy");
+alert("Post copied!");
+}catch(e){alert("Please copy manually.");}
+t.remove();
 }
+}
+
+function saveDraft(){
+let text=document.getElementById("post").value.trim();
+let link=document.getElementById("link").value.trim();
+if(!text){alert("Write a post first");return;}
+drafts.unshift({text,link});
+drafts=drafts.slice(0,30);
+try{
+localStorage.setItem("cak_drafts",JSON.stringify(drafts));
+showDrafts();
+alert("Post saved!");
+}catch(e){alert("Unable to save post.");}
+}
+
+function showDrafts(){
+let box=document.getElementById("drafts");
+box.innerHTML="";
+if(!drafts.length){box.textContent="No saved posts.";return;}
+
+drafts.forEach((d,i)=>{
+let div=document.createElement("div");
+div.className="group";
+let txt=document.createElement("span");
+txt.textContent=d.text.slice(0,45);
+let load=document.createElement("button");
+load.textContent="Load";
+load.onclick=()=>{
+document.getElementById("post").value=d.text;
+document.getElementById("link").value=d.link||"";
+};
+let del=document.createElement("button");
+del.textContent="Delete";
+del.style.background="#dc3545";
+del.onclick=()=>{
+drafts.splice(i,1);
+localStorage.setItem("cak_drafts",JSON.stringify(drafts));
+showDrafts();
+};
+div.append(txt,load,del);
+box.append(div);
+});
+}
+
 function publish(){
-let selected=groups.filter(g=>g.selected);
-if(!selected.length){alert('Select a group first');return;}
-if(!document.getElementById('post').value.trim()){alert('Write your post first');return;}
-selected.forEach(g=>window.open(g.url,'_blank'));
-document.getElementById('status').innerText='Groups opened. Paste your copied post into each group.';
+let selected=groups.filter(g=>g.selected!==false);
+if(!selected.length){alert("Select a group first");return;}
+if(!document.getElementById("post").value.trim()){
+alert("Write your post first");return;
 }
+selected.forEach(g=>window.open(g.url,"_blank"));
+document.getElementById("status").textContent=
+"Groups opened. Paste your copied post manually.";
+}
+
+load();
 </script>
 </body>
 </html>
