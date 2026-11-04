@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAKTZ GROUP POSTER</title>
+<style>
+body{margin:0;background:#f1f5fb;font-family:Arial;color:#172033}
+header{background:#0866ff;color:white;padding:25px 18px;border-radius:0 0 22px 22px}
+main{max-width:650px;margin:15px auto;padding:12px}
+.card{background:white;padding:18px;border-radius:15px;margin-bottom:15px}
+h2{font-size:18px}
+input,textarea{width:100%;box-sizing:border-box;padding:13px;margin:7px 0;border:1px solid #ddd;border-radius:9px;font-size:14px}
+textarea{height:120px}
+button{border:0;padding:13px;border-radius:9px;background:#1877f2;color:white;font-weight:bold;cursor:pointer}
+.full{width:100%;margin-top:8px}
+.group{padding:12px;border-bottom:1px solid #eee}
+small{color:#777}
+</style>
+</head>
+<body>
+<header>
+<h2>CAKTZ GROUP POSTER</h2>
+<small style="color:white">Facebook Marketing Dashboard</small>
+</header>
+<main>
+<div class="card">
+<h2>Create New Post</h2>
+<textarea id="post" placeholder="Write your advertisement here..."></textarea>
+<input id="link" placeholder="Affiliate link">
+<input id="photo" type="file" accept="image/*">
+<button class="full" onclick="copyPost()">COPY POST</button>
+</div>
+
+<div class="card">
+<h2>My Facebook Groups</h2>
+<input id="name" placeholder="Group name">
+<input id="url" placeholder="Facebook group URL">
+<button class="full" onclick="addGroup()">ADD GROUP</button>
+<div id="groups"></div>
+</div>
+
+<div class="card">
+<h2>Publish</h2>
+<p><small>Facebook posting permissions are required for automatic publishing. For now, selected group links open so you can paste your post manually.</small></p>
+<button class="full" onclick="publish()">OPEN SELECTED GROUPS</button>
+<p id="status"></p>
+</div>
+</main>
+<script>
+let groups=[];
+function addGroup(){
+let name=document.getElementById('name').value.trim();
+let url=document.getElementById('url').value.trim();
+if(!name||!url){alert('Enter group name and URL');return;}
+if(!url.startsWith('https://www.facebook.com/groups/')&&!url.startsWith('https://facebook.com/groups/')){alert('Enter a valid Facebook group URL');return;}
+groups.push({name,url,selected:true});
+document.getElementById('name').value='';
+document.getElementById('url').value='';
+showGroups();
+}
+function showGroups(){
+document.getElementById('groups').innerHTML=groups.map((g,i)=>`
+<div class="group">
+<label><input type="checkbox" checked onchange="groups[${i}].selected=this.checked"> ${g.name}</label>
+<button onclick="groups.splice(${i},1);showGroups()">Remove</button>
+</div>`).join('');
+}
+function copyPost(){
+let text=document.getElementById('post').value+'\n'+document.getElementById('link').value;
+if(!text.trim()){alert('Write your post first');return;}
+navigator.clipboard.writeText(text).then(()=>alert('Post copied!')).catch(()=>alert('Select and copy the post manually.'));
+}
+function publish(){
+let selected=groups.filter(g=>g.selected);
+if(!selected.length){alert('Select a group first');return;}
+if(!document.getElementById('post').value.trim()){alert('Write your post first');return;}
+selected.forEach(g=>window.open(g.url,'_blank'));
+document.getElementById('status').innerText='Groups opened. Paste your copied post into each group.';
+}
+</script>
+</body>
+</html>
